@@ -37,7 +37,7 @@ func (r *taskRepository) UpdateTaskByID(id uint, updatedTask Task) (Task, error)
 	if result.Error != nil {
 		return Task{}, result.Error
 	}
-	result = r.db.Model(&task).Select("*").Updates(updatedTask)
+	result = r.db.Model(&task).Omit("ID").Updates(updatedTask) // fixed: duplicate key value
 	if result.Error != nil {
 		return Task{}, result.Error
 	}

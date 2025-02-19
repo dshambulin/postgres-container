@@ -61,6 +61,8 @@ func (h *Handler) UpdateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	updatedTask.ID = 0 // fixed: duplicate key value
+
 	task, err := h.Service.UpdateTaskByID(uint(id), updatedTask)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
