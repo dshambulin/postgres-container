@@ -1,0 +1,14 @@
+DB_DSN := "postgres://postgres:your_new_password@localhost:5432/main?sslmode=disable"
+MIGRATE := migrate -path ./migrations -database $(DB_DSN)
+
+migrate-new:
+	$(MIGRATE) create -ext sql -dir ./migrations $(NAME)
+
+migrate:
+	$(MIGRATE) up	
+
+migrate-down:
+	$(MIGRATE) down
+	
+run:
+	go run cmd/app/main.go
