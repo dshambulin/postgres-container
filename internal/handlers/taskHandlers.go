@@ -89,3 +89,5 @@ func (h *Handler) DeleteTasksId(ctx context.Context, request tasks.DeleteTasksId
 	}
 	return tasks.DeleteTasksId204Response{}, nil
 }
+
+// have fun :)

@@ -1,4 +1,4 @@
-package: api
+package: api #have fun :)
 generate:
   strict-server: true
   echo-server: true
