@@ -16,3 +16,5 @@ run:
 gen:
 	oapi-codegen -config openapi/.openapi -include-tags tasks -package tasks -o ./internal/web/tasks/api.gen.go openapi/openapi.yaml
 
+lint:
+	golangci-lint	run	--out-format=colored-line-number
