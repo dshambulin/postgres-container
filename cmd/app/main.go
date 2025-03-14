@@ -9,27 +9,38 @@ import (
 	"get-post/internal/database"
 	"get-post/internal/handlers"
 	"get-post/internal/taskService"
+	"get-post/internal/userService"
 	"get-post/internal/web/tasks"
+	"get-post/internal/web/users"
 )
 
 func main() {
 	database.InitDB()
-	if err := database.DB.AutoMigrate(&taskService.TaskService{}); err != nil {
+
+	if database.DB == nil {
+		log.Fatal("Database is not initialized")
+	}
+
+	if err := database.DB.AutoMigrate(&userService.User{}, &taskService.Task{}); err != nil {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
-	repo := taskService.NewTaskRepository(database.DB)
-	service := taskService.NewService(repo)
-
-	handler := handlers.NewHandler(service)
+	tasksRepo := taskService.NewTaskRepository(database.DB)
+	userRepo := userService.NewUserRepository(database.DB)
+	tasksService := taskService.NewService(tasksRepo)
+	userService := userService.NewUserService(userRepo)
+	tasksHandler := handlers.NewTaskHandler(tasksService)
+	userHandler := handlers.NewUserHandler(userService)
 
 	e := echo.New()
-
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	strictHandler := tasks.NewStrictHandler(handler, nil)
-	tasks.RegisterHandlers(e, strictHandler)
+	strictTaskHandler := tasks.NewStrictHandler(tasksHandler, nil)
+	tasks.RegisterHandlers(e, strictTaskHandler)
+
+	strictUserHandler := users.NewStrictHandler(userHandler, nil)
+	users.RegisterHandlers(e, strictUserHandler)
 
 	if err := e.Start(":8080"); err != nil {
 		log.Fatalf("Failed to start with err: %v", err)

@@ -1,4 +1,4 @@
-DB_DSN := "postgres://postgres:your_new_password@localhost:5432/main?sslmode=disable"
+DB_DSN := "postgres://postgres:elpasodelgigante@localhost:5432/main?sslmode=disable"
 MIGRATE := migrate -path ./migrations -database $(DB_DSN)
 
 migrate-new:
@@ -13,8 +13,16 @@ migrate-down:
 run:
 	go run cmd/app/main.go
 
-gen:
+gen-tasks:
 	oapi-codegen -config openapi/.openapi -include-tags tasks -package tasks -o ./internal/web/tasks/api.gen.go openapi/openapi.yaml
 
-lint:
+gen-users:
+	oapi-codegen -config openapi/.openapi -include-tags users -package users -o ./internal/web/users/api.gen.go openapi/openapi.yaml
+
+	lint:
 	golangci-lint	run	--out-format=colored-line-number
+
+git:
+	git add .
+	git commit -m "$(commit)"
+	git push

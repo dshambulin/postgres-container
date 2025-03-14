@@ -5,6 +5,7 @@ go 1.23.3
 require (
 	github.com/labstack/echo/v4 v4.13.3
 	github.com/oapi-codegen/runtime v1.1.1
+	golang.org/x/net v0.33.0
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 )
@@ -24,7 +25,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/crypto v0.33.0 // indirect
-	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect

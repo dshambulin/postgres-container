@@ -6,17 +6,22 @@ import (
 	"get-post/internal/web/tasks"
 )
 
-type Handler struct {
+type TaskHandler struct {
 	Service *taskService.TaskService
 }
 
-func NewHandler(service *taskService.TaskService) *Handler {
-	return &Handler{
+// GetUsersUserIdTasks implements tasks.StrictServerInterface.
+func (h *TaskHandler) GetUsersUserIdTasks(ctx context.Context, request tasks.GetUsersUserIdTasksRequestObject) (tasks.GetUsersUserIdTasksResponseObject, error) {
+	panic("unimplemented")
+}
+
+func NewTaskHandler(service *taskService.TaskService) *TaskHandler {
+	return &TaskHandler{
 		Service: service,
 	}
 }
 
-func (h *Handler) GetTasks(ctx context.Context, request tasks.GetTasksRequestObject) (tasks.GetTasksResponseObject, error) {
+func (h *TaskHandler) GetTasks(ctx context.Context, request tasks.GetTasksRequestObject) (tasks.GetTasksResponseObject, error) {
 	allTasks, err := h.Service.GetAllTasks()
 	if err != nil {
 		return nil, err
@@ -36,15 +41,13 @@ func (h *Handler) GetTasks(ctx context.Context, request tasks.GetTasksRequestObj
 
 }
 
-func (h *Handler) PostTasks(ctx context.Context, request tasks.PostTasksRequestObject) (tasks.PostTasksResponseObject, error) {
+func (h *TaskHandler) PostTasks(ctx context.Context, request tasks.PostTasksRequestObject) (tasks.PostTasksResponseObject, error) {
 	taskRequest := request.Body
-
 	taskToCreate := taskService.Task{
 		Task:   *taskRequest.Task,
 		IsDone: *taskRequest.IsDone,
 	}
 	createdTask, err := h.Service.CreateTask(taskToCreate)
-
 	if err != nil {
 		return nil, err
 	}
@@ -54,40 +57,34 @@ func (h *Handler) PostTasks(ctx context.Context, request tasks.PostTasksRequestO
 		Task:   &createdTask.Task,
 		IsDone: &createdTask.IsDone,
 	}
-
 	return response, nil
 }
 
-func (h *Handler) PatchTasksId(ctx context.Context, request tasks.PatchTasksIdRequestObject) (tasks.PatchTasksIdResponseObject, error) {
-	taskID := int64(request.Id)
-	updateData := request.Body
-
+func (h *TaskHandler) PatchTasksTaskId(ctx context.Context, request tasks.PatchTasksTaskIdRequestObject) (tasks.PatchTasksTaskIdResponseObject, error) {
+	taskRequest := request.Body
+	taskID := request.TaskId
 	taskToUpdate := taskService.Task{
-		ID:     taskID,
-		Task:   *updateData.Task,
-		IsDone: *updateData.IsDone,
+		Task:   *taskRequest.Task,
+		IsDone: *taskRequest.IsDone,
 	}
-
-	updatedTask, err := h.Service.UpdateTaskByID(uint(taskID), taskToUpdate)
+	updatedTask, err := h.Service.UpdateTaskByID(taskID, taskToUpdate)
 	if err != nil {
 		return nil, err
 	}
 
-	response := tasks.PatchTasksId200JSONResponse{
+	response := tasks.PatchTasksTaskId200JSONResponse{
 		Id:     &updatedTask.ID,
 		Task:   &updatedTask.Task,
 		IsDone: &updatedTask.IsDone,
 	}
-
-	return &response, nil
+	return response, nil
 }
 
-func (h *Handler) DeleteTasksId(ctx context.Context, request tasks.DeleteTasksIdRequestObject) (tasks.DeleteTasksIdResponseObject, error) {
-	id := request.Id
-	if err := h.Service.DeleteTaskByID(uint(id)); err != nil {
+func (h *TaskHandler) DeleteTasksTaskId(ctx context.Context, request tasks.DeleteTasksTaskIdRequestObject) (tasks.DeleteTasksTaskIdResponseObject, error) {
+	taskID := request.TaskId
+	if err := h.Service.DeleteTaskByID(taskID); err != nil {
 		return nil, err
 	}
-	return tasks.DeleteTasksId204Response{}, nil
+	response := tasks.DeleteTasksTaskId204Response{}
+	return response, nil
 }
-
-// have fun :)
