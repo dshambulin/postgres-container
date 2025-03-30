@@ -25,23 +25,27 @@ func main() {
 		log.Fatalf("Failed to migrate database: %v", err)
 	}
 
+	// репозитории и сервисы
 	tasksRepo := taskService.NewTaskRepository(database.DB)
 	userRepo := userService.NewUserRepository(database.DB)
-	tasksService := taskService.NewService(tasksRepo)
-	userService := userService.NewUserService(userRepo)
-	tasksHandler := handlers.NewTaskHandler(tasksService)
-	userHandler := handlers.NewUserHandler(userService)
 
+	tasksService := taskService.NewTaskService(tasksRepo)
+	usrService := userService.NewUserService(userRepo)
+
+	// хендлеры
+	tasksHandler := handlers.NewTaskHandler(tasksService)
+	userHandler := handlers.NewUserHandler(usrService)
+
+	// Echo
 	e := echo.New()
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	strictTaskHandler := tasks.NewStrictHandler(tasksHandler, nil)
-	tasks.RegisterHandlers(e, strictTaskHandler)
+	// рег. хендлеры обычным способом
+	tasks.RegisterHandlers(e, tasksHandler)
+	users.RegisterHandlers(e, userHandler)
 
-	strictUserHandler := users.NewStrictHandler(userHandler, nil)
-	users.RegisterHandlers(e, strictUserHandler)
-
+	// запуск
 	if err := e.Start(":8080"); err != nil {
 		log.Fatalf("Failed to start with err: %v", err)
 	}

@@ -4,14 +4,18 @@
 package users
 
 import (
-	"context"
-	"encoding/json"
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	"github.com/oapi-codegen/runtime"
-	strictecho "github.com/oapi-codegen/runtime/strictmiddleware/echo"
 )
 
 // User defines model for User.
@@ -133,213 +137,88 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 
 }
 
-type GetUsersRequestObject struct {
+// Base64 encoded, gzipped, json marshaled Swagger object
+var swaggerSpec = []string{
+
+	"H4sIAAAAAAAC/8RUwW7bMAz9FYHb0ajTrSffugUYcuthORXFoFp0os6WNIleERj+94GU2wSxt26HtZeQ",
+	"oSjlvcfHDFD7LniHjhJUA6R6j52WdJswcgzRB4xkUarYadtyQoeAUEGiaN0OxgKs4XLjY6cJKuitIyie",
+	"2qwj3GHkvqBTevTRLDwyPvf7+wesCUYuWdd4abbU8tn1zQYK+IkxWe+ggsuL1cWKX/YBnQ4WKvgoJf4t",
+	"2gvsknT6ztlYTHk5cPhmzThV+4RRendIHJi1JuvdxkAFX5C20lBAxBS8S1mPD6sVh9o7Qif3dAitreVm",
+	"+ZAY4ZOsnFnCTi6+j9hABe/K4wDKSf1SpD+KoWPUh6yFwVRHGygzv1atTaR8ozJ47kh91+l4yJCVbtvp",
+	"rADSuwTVLeTvdzwKnxao3vh0wvVHj4k+eXP4J5ovs5uz+bpHwarIqzqiJpwA2IgGKoo9jjP1L18FVoZj",
+	"BN6Zyp/lSGnl8DGfz5V+tlc5cJhMBwZbJJwPYC11GQF/bIw4OeoOSSx6O4BlZOxuKMDpjl0yvTzTrDjh",
+	"/9J2jnczga8y0lNFGJTK4A3b9Oq3Tc6TanzvzJlomWGe9v1BbdbL9tRU7xf8yeW3U+f1FmKtSavGR9UH",
+	"83fbsPrvmGSsGc/5ULdS/fNQFzbh+Nc8jr8CAAD//9V1aGmPBgAA",
 }
 
-type GetUsersResponseObject interface {
-	VisitGetUsersResponse(w http.ResponseWriter) error
-}
-
-type GetUsers200JSONResponse []User
-
-func (response GetUsers200JSONResponse) VisitGetUsersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type PostUsersRequestObject struct {
-	Body *PostUsersJSONRequestBody
-}
-
-type PostUsersResponseObject interface {
-	VisitPostUsersResponse(w http.ResponseWriter) error
-}
-
-type PostUsers201JSONResponse User
-
-func (response PostUsers201JSONResponse) VisitPostUsersResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-type DeleteUsersUserIdRequestObject struct {
-	UserId uint `json:"user_id"`
-}
-
-type DeleteUsersUserIdResponseObject interface {
-	VisitDeleteUsersUserIdResponse(w http.ResponseWriter) error
-}
-
-type DeleteUsersUserId204Response struct {
-}
-
-func (response DeleteUsersUserId204Response) VisitDeleteUsersUserIdResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeleteUsersUserId404Response struct {
-}
-
-func (response DeleteUsersUserId404Response) VisitDeleteUsersUserIdResponse(w http.ResponseWriter) error {
-	w.WriteHeader(404)
-	return nil
-}
-
-type PatchUsersUserIdRequestObject struct {
-	UserId uint `json:"user_id"`
-	Body   *PatchUsersUserIdJSONRequestBody
-}
-
-type PatchUsersUserIdResponseObject interface {
-	VisitPatchUsersUserIdResponse(w http.ResponseWriter) error
-}
-
-type PatchUsersUserId200JSONResponse User
-
-func (response PatchUsersUserId200JSONResponse) VisitPatchUsersUserIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-// StrictServerInterface represents all server handlers.
-type StrictServerInterface interface {
-	// Get all users
-	// (GET /users)
-	GetUsers(ctx context.Context, request GetUsersRequestObject) (GetUsersResponseObject, error)
-	// Create a new user
-	// (POST /users)
-	PostUsers(ctx context.Context, request PostUsersRequestObject) (PostUsersResponseObject, error)
-	// Delete user by ID
-	// (DELETE /users/{user_id})
-	DeleteUsersUserId(ctx context.Context, request DeleteUsersUserIdRequestObject) (DeleteUsersUserIdResponseObject, error)
-	// Update user by ID
-	// (PATCH /users/{user_id})
-	PatchUsersUserId(ctx context.Context, request PatchUsersUserIdRequestObject) (PatchUsersUserIdResponseObject, error)
-}
-
-type StrictHandlerFunc = strictecho.StrictEchoHandlerFunc
-type StrictMiddlewareFunc = strictecho.StrictEchoMiddlewareFunc
-
-func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares}
-}
-
-type strictHandler struct {
-	ssi         StrictServerInterface
-	middlewares []StrictMiddlewareFunc
-}
-
-// GetUsers operation middleware
-func (sh *strictHandler) GetUsers(ctx echo.Context) error {
-	var request GetUsersRequestObject
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.GetUsers(ctx.Request().Context(), request.(GetUsersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetUsers")
-	}
-
-	response, err := handler(ctx, request)
-
+// GetSwagger returns the content of the embedded swagger specification file
+// or error if failed to decode
+func decodeSpec() ([]byte, error) {
+	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
 	if err != nil {
-		return err
-	} else if validResponse, ok := response.(GetUsersResponseObject); ok {
-		return validResponse.VisitGetUsersResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
+		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
 	}
-	return nil
+	zr, err := gzip.NewReader(bytes.NewReader(zipped))
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(zr)
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
-// PostUsers operation middleware
-func (sh *strictHandler) PostUsers(ctx echo.Context) error {
-	var request PostUsersRequestObject
+var rawSpec = decodeSpecCached()
 
-	var body PostUsersJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
+// a naive cached of a decoded swagger spec
+func decodeSpecCached() func() ([]byte, error) {
+	data, err := decodeSpec()
+	return func() ([]byte, error) {
+		return data, err
 	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.PostUsers(ctx.Request().Context(), request.(PostUsersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PostUsers")
-	}
-
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(PostUsersResponseObject); ok {
-		return validResponse.VisitPostUsersResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
 }
 
-// DeleteUsersUserId operation middleware
-func (sh *strictHandler) DeleteUsersUserId(ctx echo.Context, userId uint) error {
-	var request DeleteUsersUserIdRequestObject
-
-	request.UserId = userId
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.DeleteUsersUserId(ctx.Request().Context(), request.(DeleteUsersUserIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeleteUsersUserId")
+// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
+func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
+	res := make(map[string]func() ([]byte, error))
+	if len(pathToFile) > 0 {
+		res[pathToFile] = rawSpec
 	}
 
-	response, err := handler(ctx, request)
-
-	if err != nil {
-		return err
-	} else if validResponse, ok := response.(DeleteUsersUserIdResponseObject); ok {
-		return validResponse.VisitDeleteUsersUserIdResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
-	}
-	return nil
+	return res
 }
 
-// PatchUsersUserId operation middleware
-func (sh *strictHandler) PatchUsersUserId(ctx echo.Context, userId uint) error {
-	var request PatchUsersUserIdRequestObject
+// GetSwagger returns the Swagger specification corresponding to the generated code
+// in this file. The external references of Swagger specification are resolved.
+// The logic of resolving external references is tightly connected to "import-mapping" feature.
+// Externally referenced files must be embedded in the corresponding golang packages.
+// Urls can be supported but this task was out of the scope.
+func GetSwagger() (swagger *openapi3.T, err error) {
+	resolvePath := PathToRawSpec("")
 
-	request.UserId = userId
-
-	var body PatchUsersUserIdJSONRequestBody
-	if err := ctx.Bind(&body); err != nil {
-		return err
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+		pathToFile := url.String()
+		pathToFile = path.Clean(pathToFile)
+		getSpec, ok := resolvePath[pathToFile]
+		if !ok {
+			err1 := fmt.Errorf("path not found: %s", pathToFile)
+			return nil, err1
+		}
+		return getSpec()
 	}
-	request.Body = &body
-
-	handler := func(ctx echo.Context, request interface{}) (interface{}, error) {
-		return sh.ssi.PatchUsersUserId(ctx.Request().Context(), request.(PatchUsersUserIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "PatchUsersUserId")
-	}
-
-	response, err := handler(ctx, request)
-
+	var specData []byte
+	specData, err = rawSpec()
 	if err != nil {
-		return err
-	} else if validResponse, ok := response.(PatchUsersUserIdResponseObject); ok {
-		return validResponse.VisitPatchUsersUserIdResponse(ctx.Response())
-	} else if response != nil {
-		return fmt.Errorf("unexpected response type: %T", response)
+		return
 	}
-	return nil
+	swagger, err = loader.LoadFromData(specData)
+	if err != nil {
+		return
+	}
+	return
 }

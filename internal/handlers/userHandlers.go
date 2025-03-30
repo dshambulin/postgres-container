@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"get-post/internal/userService"
 	"get-post/internal/web/users"
 	"net/http"
@@ -14,84 +13,110 @@ type UserHandler struct {
 }
 
 func NewUserHandler(service *userService.UserService) *UserHandler {
-	return &UserHandler{
-		Service: service,
-	}
+	return &UserHandler{Service: service}
 }
 
-func (u *UserHandler) GetUsers(ctx context.Context, request users.GetUsersRequestObject) (users.GetUsersResponseObject, error) {
-	allUsers, err := u.Service.GetAllUsers()
+func (h *UserHandler) GetUsers(ctx echo.Context) error {
+	allUsers, err := h.Service.GetAllUsers()
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Error fetching users")
-	}
-
-	if len(allUsers) == 0 {
-		return users.GetUsers200JSONResponse{}, nil
-	}
-
-	var response users.GetUsers200JSONResponse
-	for _, usr := range allUsers {
-		response = append(response, users.User{
-			Id:    &usr.ID,
-			Email: &usr.Email,
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
 		})
 	}
 
-	return response, nil
+	if len(allUsers) == 0 {
+		return ctx.JSON(http.StatusOK, []users.User{})
+	}
+
+	response := make([]users.User, len(allUsers))
+	for i, u := range allUsers {
+		id := u.ID
+		email := u.Email
+		password := u.Password
+
+		response[i] = users.User{
+			Id:       &id,
+			Email:    &email,
+			Password: &password,
+		}
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
-func (u *UserHandler) PostUsers(ctx context.Context, request users.PostUsersRequestObject) (users.PostUsersResponseObject, error) {
-	userRequest := request.Body
-	if userRequest == nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid user data")
+func (h *UserHandler) PostUsers(ctx echo.Context) error {
+	var reqBody users.User
+	if err := ctx.Bind(&reqBody); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid JSON body",
+		})
 	}
 
-	userToCreate := userService.User{
-		Email:    *userRequest.Email,
-		Password: *userRequest.Password,
+	newUser := userService.User{
+		Email:    *reqBody.Email,
+		Password: *reqBody.Password,
 	}
-	createdUser, err := u.Service.CreateUser(userToCreate)
+
+	createdUser, err := h.Service.CreateUser(newUser)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusInternalServerError, "Error creating user")
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	response := users.PostUsers201JSONResponse{
-		Id:    &createdUser.ID,
-		Email: &createdUser.Email,
+	id := createdUser.ID
+	email := createdUser.Email
+	password := createdUser.Password
+
+	response := users.User{
+		Id:       &id,
+		Email:    &email,
+		Password: &password,
 	}
-	return response, nil
+
+	return ctx.JSON(http.StatusCreated, response)
 }
 
-func (u *UserHandler) DeleteUsersUserId(ctx context.Context, request users.DeleteUsersUserIdRequestObject) (users.DeleteUsersUserIdResponseObject, error) {
-	userId := request.UserId
-	err := u.Service.DeleteUserByID(userId)
+func (h *UserHandler) DeleteUsersUserId(ctx echo.Context, userId uint) error {
+	err := h.Service.DeleteUserByID(userId)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusNotFound, "User not found")
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
-	response := users.DeleteUsersUserId204Response{}
-	return response, nil
+
+	return ctx.NoContent(http.StatusNoContent)
 }
 
-func (u *UserHandler) PatchUsersUserId(ctx context.Context, request users.PatchUsersUserIdRequestObject) (users.PatchUsersUserIdResponseObject, error) {
-	userId := request.UserId
-	userRequest := request.Body
-	if userRequest == nil {
-		return nil, echo.NewHTTPError(http.StatusBadRequest, "Invalid update data")
+func (h *UserHandler) PatchUsersUserId(ctx echo.Context, userId uint) error {
+	var reqBody users.User
+	if err := ctx.Bind(&reqBody); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid JSON body",
+		})
 	}
 
-	updatedUser := userService.User{
-		Email:    *userRequest.Email,
-		Password: *userRequest.Password,
+	userUpdates := userService.User{
+		Email:    *reqBody.Email,
+		Password: *reqBody.Password,
 	}
 
-	updatedUserInfo, err := u.Service.UpdateUserByID(userId, updatedUser)
+	updatedUser, err := h.Service.UpdateUserByID(userId, userUpdates)
 	if err != nil {
-		return nil, echo.NewHTTPError(http.StatusNotFound, "User not found")
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	response := users.PatchUsersUserId200JSONResponse{
-		Id:    &updatedUserInfo.ID,
-		Email: &updatedUserInfo.Email,
+	id := updatedUser.ID
+	email := updatedUser.Email
+	password := updatedUser.Password
+
+	response := users.User{
+		Id:       &id,
+		Email:    &email,
+		Password: &password,
 	}
-	return response, nil
+
+	return ctx.JSON(http.StatusOK, response)
 }

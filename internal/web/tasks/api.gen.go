@@ -261,6 +261,30 @@ func (response PatchTasksTaskId200JSONResponse) VisitPatchTasksTaskIdResponse(w 
 	return json.NewEncoder(w).Encode(response)
 }
 
+type PatchTasksTaskId400Response struct {
+}
+
+func (response PatchTasksTaskId400Response) VisitPatchTasksTaskIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+	return nil
+}
+
+type PatchTasksTaskId404Response struct {
+}
+
+func (response PatchTasksTaskId404Response) VisitPatchTasksTaskIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(404)
+	return nil
+}
+
+type PatchTasksTaskId500Response struct {
+}
+
+func (response PatchTasksTaskId500Response) VisitPatchTasksTaskIdResponse(w http.ResponseWriter) error {
+	w.WriteHeader(500)
+	return nil
+}
+
 type GetUsersUserIdTasksRequestObject struct {
 	UserId uint `json:"user_id"`
 }

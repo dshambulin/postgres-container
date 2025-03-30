@@ -1,7 +1,10 @@
 package handlers
 
 import (
-	"context"
+	"net/http"
+
+	"github.com/labstack/echo/v4"
+
 	"get-post/internal/taskService"
 	"get-post/internal/web/tasks"
 )
@@ -10,81 +13,145 @@ type TaskHandler struct {
 	Service *taskService.TaskService
 }
 
-// GetUsersUserIdTasks implements tasks.StrictServerInterface.
-func (h *TaskHandler) GetUsersUserIdTasks(ctx context.Context, request tasks.GetUsersUserIdTasksRequestObject) (tasks.GetUsersUserIdTasksResponseObject, error) {
-	panic("unimplemented")
-}
-
 func NewTaskHandler(service *taskService.TaskService) *TaskHandler {
 	return &TaskHandler{
 		Service: service,
 	}
 }
 
-func (h *TaskHandler) GetTasks(ctx context.Context, request tasks.GetTasksRequestObject) (tasks.GetTasksResponseObject, error) {
+func (h *TaskHandler) GetTasks(ctx echo.Context) error {
 	allTasks, err := h.Service.GetAllTasks()
 	if err != nil {
-		return nil, err
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	response := tasks.GetTasks200JSONResponse{}
+	response := make([]tasks.Task, 0, len(allTasks))
+	for _, t := range allTasks {
+		id := t.ID
+		isDone := t.IsDone
+		taskName := t.Task
+		userId := t.UserID
 
-	for _, tsk := range allTasks {
-		task := tasks.Task{
-			Id:     &tsk.ID,
-			Task:   &tsk.Task,
-			IsDone: &tsk.IsDone,
-		}
-		response = append(response, task)
+		response = append(response, tasks.Task{
+			Id:     &id,
+			IsDone: &isDone,
+			Task:   &taskName,
+			UserId: &userId,
+		})
 	}
-	return response, nil
 
+	return ctx.JSON(http.StatusOK, response)
 }
 
-func (h *TaskHandler) PostTasks(ctx context.Context, request tasks.PostTasksRequestObject) (tasks.PostTasksResponseObject, error) {
-	taskRequest := request.Body
-	taskToCreate := taskService.Task{
-		Task:   *taskRequest.Task,
-		IsDone: *taskRequest.IsDone,
+func (h *TaskHandler) PostTasks(ctx echo.Context) error {
+	var reqBody tasks.Task
+	if err := ctx.Bind(&reqBody); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid JSON body",
+		})
 	}
-	createdTask, err := h.Service.CreateTask(taskToCreate)
+
+	newTask := taskService.Task{
+		Task:   *reqBody.Task,
+		IsDone: *reqBody.IsDone,
+		UserID: *reqBody.UserId,
+	}
+
+	createdTask, err := h.Service.CreateTask(newTask)
 	if err != nil {
-		return nil, err
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	response := tasks.PostTasks201JSONResponse{
-		Id:     &createdTask.ID,
-		Task:   &createdTask.Task,
-		IsDone: &createdTask.IsDone,
+	id := createdTask.ID
+	isDone := createdTask.IsDone
+	taskName := createdTask.Task
+	userId := createdTask.UserID
+
+	response := tasks.Task{
+		Id:     &id,
+		IsDone: &isDone,
+		Task:   &taskName,
+		UserId: &userId,
 	}
-	return response, nil
+
+	return ctx.JSON(http.StatusCreated, response)
 }
 
-func (h *TaskHandler) PatchTasksTaskId(ctx context.Context, request tasks.PatchTasksTaskIdRequestObject) (tasks.PatchTasksTaskIdResponseObject, error) {
-	taskRequest := request.Body
-	taskID := request.TaskId
-	taskToUpdate := taskService.Task{
-		Task:   *taskRequest.Task,
-		IsDone: *taskRequest.IsDone,
+func (h *TaskHandler) DeleteTasksTaskId(ctx echo.Context, taskId uint) error {
+	if err := h.Service.DeleteTaskByID(taskId); err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
-	updatedTask, err := h.Service.UpdateTaskByID(taskID, taskToUpdate)
+
+	return ctx.NoContent(http.StatusNoContent)
+}
+
+func (h *TaskHandler) PatchTasksTaskId(ctx echo.Context, taskId uint) error {
+	var reqBody tasks.Task
+	if err := ctx.Bind(&reqBody); err != nil {
+		return ctx.JSON(http.StatusBadRequest, map[string]string{
+			"error": "invalid JSON body",
+		})
+	}
+
+	updatedData := taskService.Task{
+		Task:   *reqBody.Task,
+		IsDone: *reqBody.IsDone,
+	}
+
+	updatedTask, err := h.Service.UpdateTaskByID(taskId, updatedData)
 	if err != nil {
-		return nil, err
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
 
-	response := tasks.PatchTasksTaskId200JSONResponse{
-		Id:     &updatedTask.ID,
-		Task:   &updatedTask.Task,
-		IsDone: &updatedTask.IsDone,
+	id := updatedTask.ID
+	isDone := updatedTask.IsDone
+	taskName := updatedTask.Task
+	userId := updatedTask.UserID
+
+	response := tasks.Task{
+		Id:     &id,
+		IsDone: &isDone,
+		Task:   &taskName,
+		UserId: &userId,
 	}
-	return response, nil
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
-func (h *TaskHandler) DeleteTasksTaskId(ctx context.Context, request tasks.DeleteTasksTaskIdRequestObject) (tasks.DeleteTasksTaskIdResponseObject, error) {
-	taskID := request.TaskId
-	if err := h.Service.DeleteTaskByID(taskID); err != nil {
-		return nil, err
+func (h *TaskHandler) GetUsersUserIdTasks(ctx echo.Context, userId uint) error {
+	tasksForUser, err := h.Service.GetTasksByUserID(userId)
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, map[string]string{
+			"error": err.Error(),
+		})
 	}
-	response := tasks.DeleteTasksTaskId204Response{}
-	return response, nil
+
+	if len(tasksForUser) == 0 {
+		return ctx.JSON(http.StatusOK, []tasks.Task{})
+	}
+
+	response := make([]tasks.Task, 0, len(tasksForUser))
+	for _, t := range tasksForUser {
+		id := t.ID
+		taskName := t.Task
+		isDone := t.IsDone
+		uId := t.UserID
+
+		response = append(response, tasks.Task{
+			Id:     &id,
+			Task:   &taskName,
+			IsDone: &isDone,
+			UserId: &uId,
+		})
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }

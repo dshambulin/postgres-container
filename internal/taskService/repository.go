@@ -7,6 +7,7 @@ type TaskRepository interface {
 	GetAllTasks() ([]Task, error)
 	UpdateTaskByID(id uint, task Task) (Task, error)
 	DeleteTaskByID(id uint) error
+	GetTasksByUserID(userID uint) ([]Task, error)
 }
 
 type taskRepository struct {
@@ -31,13 +32,19 @@ func (r *taskRepository) GetAllTasks() ([]Task, error) {
 	return tasks, err
 }
 
+func (r *taskRepository) GetTasksByUserID(userID uint) ([]Task, error) {
+	var tasks []Task
+	err := r.db.Where("user_id = ?", userID).Find(&tasks).Error
+	return tasks, err
+}
+
 func (r *taskRepository) UpdateTaskByID(id uint, updatedTask Task) (Task, error) {
 	var task Task
 	result := r.db.First(&task, id)
 	if result.Error != nil {
 		return Task{}, result.Error
 	}
-	result = r.db.Model(&task).Omit("ID").Updates(updatedTask) // fixed: duplicate key value
+	result = r.db.Model(&task).Omit("ID").Updates(updatedTask)
 	if result.Error != nil {
 		return Task{}, result.Error
 	}

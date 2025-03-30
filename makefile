@@ -17,12 +17,12 @@ gen-tasks:
 	oapi-codegen -config openapi/.openapi -include-tags tasks -package tasks -o ./internal/web/tasks/api.gen.go openapi/openapi.yaml
 
 gen-users:
-	oapi-codegen -config openapi/.openapi -include-tags users -package users -o ./internal/web/users/api.gen.go openapi/openapi.yaml
-
-	lint:
-	golangci-lint	run	--out-format=colored-line-number
+	oapi-codegen	-generate	"types,server,spec"	-package users	-include-tags users	-o ./internal/web/users/api.gen.go	openapi/openapi.yaml
 
 git:
 	git add .
 	git commit -m "$(commit)"
 	git push
+
+lint:
+	golangci-lint run ./...
